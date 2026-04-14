@@ -14,7 +14,14 @@ export async function login(formData: FormData) {
     const { error } = await supabase.auth.signInWithPassword(data);
 
     if (error) {
-        return redirect('/auth/login?error=' + encodeURIComponent(error.message));
+        // Translate common errors to PT-BR
+        let msg = error.message;
+        if (msg.includes('Invalid login credentials')) {
+            msg = 'Email ou senha incorretos.';
+        } else if (msg.includes('Email not confirmed')) {
+            msg = 'Email ainda não confirmado. Verifique sua caixa de entrada e spam.';
+        }
+        return redirect('/auth/login?error=' + encodeURIComponent(msg));
     }
 
     revalidatePath('/', 'layout');
@@ -23,15 +30,36 @@ export async function login(formData: FormData) {
 
 export async function signup(formData: FormData) {
     const supabase = await createClient();
-    const data = {
-        email: formData.get('email') as string,
-        password: formData.get('password') as string,
-    };
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
 
-    const { error } = await supabase.auth.signUp(data);
+    if (password.length < 6) {
+        return redirect('/auth/login?error=' + encodeURIComponent('A senha deve ter no mínimo 6 caracteres.'));
+    }
+
+    const { data: signUpData, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+            emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
+        },
+    });
 
     if (error) {
-        return redirect('/auth/login?error=' + encodeURIComponent(error.message));
+        let msg = error.message;
+        if (msg.includes('already registered')) {
+            msg = 'Este email já está cadastrado. Tente fazer login.';
+        } else if (msg.includes('valid email')) {
+            msg = 'Informe um email válido.';
+        }
+        return redirect('/auth/login?error=' + encodeURIComponent(msg));
+    }
+
+    // Supabase returns user but with no session if email confirmation is required
+    if (signUpData.user && !signUpData.session) {
+        return redirect('/auth/login?message=' + encodeURIComponent(
+            'Conta criada! Verifique seu email para confirmar o cadastro antes de fazer login.'
+        ));
     }
 
     revalidatePath('/', 'layout');
