@@ -66,6 +66,49 @@ export async function signup(formData: FormData) {
     redirect('/onboarding');
 }
 
+export async function requestPasswordReset(formData: FormData) {
+    const supabase = await createClient();
+    const email = formData.get('email') as string;
+
+    if (!email) {
+        return redirect('/auth/login?error=' + encodeURIComponent('Informe seu email.'));
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/reset-password`,
+    });
+
+    if (error) {
+        return redirect('/auth/login?error=' + encodeURIComponent('Erro ao enviar email de recuperação. Tente novamente.'));
+    }
+
+    return redirect('/auth/login?message=' + encodeURIComponent(
+        'Email de recuperação enviado! Verifique sua caixa de entrada e spam.'
+    ));
+}
+
+export async function updatePassword(formData: FormData) {
+    const supabase = await createClient();
+    const password = formData.get('password') as string;
+
+    if (!password || password.length < 6) {
+        return redirect('/auth/reset-password?error=' + encodeURIComponent('A senha deve ter no mínimo 6 caracteres.'));
+    }
+
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+        let msg = error.message;
+        if (msg.includes('same password')) {
+            msg = 'A nova senha não pode ser igual à anterior.';
+        }
+        return redirect('/auth/reset-password?error=' + encodeURIComponent(msg));
+    }
+
+    revalidatePath('/', 'layout');
+    redirect('/auth/login?message=' + encodeURIComponent('Senha atualizada com sucesso! Faça login com sua nova senha.'));
+}
+
 export async function logout() {
     const supabase = await createClient();
     await supabase.auth.signOut();
