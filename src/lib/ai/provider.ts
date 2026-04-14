@@ -1,13 +1,18 @@
-import { createOpenAI } from '@ai-sdk/openai'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
 
 export function getAIProvider() {
-  return createOpenAI({
-    apiKey: process.env.QWEN_API_KEY!,
-    baseURL: process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-  })
+  const apiKey = process.env.GEMINI_API_KEY
+    || process.env.GOOGLE_API_KEY
+    || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+
+  if (!apiKey) {
+    throw new Error('Missing GEMINI_API_KEY environment variable')
+  }
+
+  return createGoogleGenerativeAI({ apiKey })
 }
 
 export function getModel() {
   const provider = getAIProvider()
-  return provider(process.env.QWEN_MODEL || 'qwen-turbo')
+  return provider(process.env.GEMINI_MODEL || 'gemini-2.5-flash')
 }
