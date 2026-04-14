@@ -14,22 +14,27 @@ function todayISO() {
 }
 
 export async function captureBullet(formData: FormData) {
+  const result = await captureBulletWithFeedback(formData)
+  return result
+}
+
+export async function captureBulletWithFeedback(formData: FormData) {
   const text = formData.get('text') as string
-  if (!text?.trim()) return
+  if (!text?.trim()) return null
 
   const workspace = await getWorkspace()
   const today = todayISO()
 
-  // Get or create today's journal + entry
   const journal = await getOrCreateDailyJournal(workspace.id, today)
   const entry = await getOrCreateEntry(workspace.id, journal.id, today)
 
-  // Check if AI is enabled
   let bulletType: BulletType = 'note'
   let priority: number | null = null
   let dueAt: string | null = null
   let collectionId: string | null = null
   let cleanText = text.trim()
+  let shouldBreakIntoMicrotasks = false
+  let aiUsed = false
 
   try {
     const prefs = await getPreferences()
@@ -43,6 +48,8 @@ export async function captureBullet(formData: FormData) {
       priority = classification.priority
       cleanText = classification.clean_text
       dueAt = classification.suggested_date ? `${classification.suggested_date}T00:00:00Z` : null
+      shouldBreakIntoMicrotasks = classification.should_break_into_microtasks
+      aiUsed = true
 
       if (classification.suggested_collection) {
         const match = collections.find(c =>
@@ -55,7 +62,7 @@ export async function captureBullet(formData: FormData) {
     // AI failed — fall back to plain note
   }
 
-  await createItem({
+  const item = await createItem({
     workspace_id: workspace.id,
     entry_id: entry.id,
     parent_item_id: null,
@@ -68,11 +75,38 @@ export async function captureBullet(formData: FormData) {
     duration_min: null,
     priority,
     collection_id: collectionId,
-    ai_generated: false,
+    ai_generated: aiUsed,
   })
+
+  // Auto-generate microtasks if AI suggests it
+  if (shouldBreakIntoMicrotasks && item.id) {
+    try {
+      const { generateMicrotasks } = await import('@/lib/ai/microtasks')
+      const { createMicrotasks } = await import('@/lib/services/microtasks')
+      const result = await generateMicrotasks(cleanText)
+      await createMicrotasks(result.microtasks.map((mt, i) => ({
+        workspace_id: workspace.id,
+        parent_item_id: item.id,
+        title: mt.title,
+        description: mt.description,
+        status: 'open',
+        position: i,
+        ai_generated: true,
+      })))
+    } catch {
+      // Microtask generation failed silently
+    }
+  }
 
   revalidatePath('/')
   revalidatePath('/journal')
+
+  return {
+    bullet_type: bulletType,
+    clean_text: cleanText,
+    should_break_into_microtasks: shouldBreakIntoMicrotasks,
+    ai_used: aiUsed,
+  }
 }
 
 export async function captureToInbox(formData: FormData) {

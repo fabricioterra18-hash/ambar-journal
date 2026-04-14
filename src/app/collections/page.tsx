@@ -1,4 +1,5 @@
-import { Folder, Plus } from 'lucide-react'
+import { Folder } from 'lucide-react'
+import Link from 'next/link'
 import { getWorkspace } from '@/lib/services/workspace'
 import { getCollections, getCollectionItemCount } from '@/lib/services/collections'
 import { CollectionActions } from './actions'
@@ -30,14 +31,15 @@ export default async function CollectionsPage() {
 
       <div className="grid grid-cols-2 gap-4">
         {collectionsWithCounts.map((collection) => (
-          <div
+          <Link
             key={collection.id}
-            className="bg-surface-lowest rounded-2xl p-5 shadow-sm border border-sunlight-200/20 hover:-translate-y-1 transition-transform cursor-pointer"
+            href={`/collections/${collection.id}`}
+            className="bg-surface-lowest rounded-2xl p-5 shadow-sm border border-sunlight-200/20 hover:-translate-y-1 transition-transform cursor-pointer block"
           >
             <Folder className="text-amber-700 mb-3" size={24} />
             <h3 className="font-heading text-lg text-ink-900 mb-1">{collection.name}</h3>
             <p className="font-sans text-xs text-ink-600">{collection.itemCount} ite{collection.itemCount !== 1 ? 'ns' : 'm'}</p>
-          </div>
+          </Link>
         ))}
 
         <CollectionActions />
