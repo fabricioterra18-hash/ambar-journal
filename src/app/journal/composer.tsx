@@ -11,6 +11,13 @@ const typeLabels: Record<string, string> = {
   insight: 'Insight',
 }
 
+const typeEmojis: Record<string, string> = {
+  task: '✅',
+  event: '📅',
+  note: '📝',
+  insight: '💡',
+}
+
 export function JournalComposer() {
   const [text, setText] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -40,18 +47,20 @@ export function JournalComposer() {
   }
 
   return (
-    <div className="bg-surface-lowest rounded-2xl p-4 shadow-sm border border-sunlight-200/20 mb-8">
-      {/* AI Feedback toast */}
+    <div className="bg-surface rounded-2xl p-4 card-shadow border border-sand-200/40">
+      {/* AI Feedback */}
       {feedback && (
-        <div className="bg-olive-600/10 border border-olive-600/30 rounded-xl p-3 mb-3 flex items-start gap-3">
-          <Check size={14} className="text-olive-600 mt-0.5 flex-shrink-0" />
+        <div className="bg-sage-50 border border-sage-100 rounded-xl p-3 mb-3 flex items-start gap-2.5 animate-scale-in">
+          <div className="w-6 h-6 rounded-lg bg-sage-500 flex items-center justify-center flex-shrink-0">
+            <Check size={12} className="text-white" />
+          </div>
           <div className="flex-1">
-            <p className="text-xs font-sans text-ink-900 font-medium">
-              Classificado como <span className="text-amber-700">{typeLabels[feedback.type] ?? feedback.type}</span>
+            <p className="text-xs font-sans text-charcoal-900 font-medium">
+              {typeEmojis[feedback.type] ?? ''} <span className="text-coral-500">{typeLabels[feedback.type] ?? feedback.type}</span>
             </p>
             {feedback.hasMicrotasks && (
-              <p className="text-[10px] font-sans text-amber-700 mt-0.5 flex items-center gap-1">
-                <Sparkles size={9} /> Microtarefas geradas automaticamente
+              <p className="text-[10px] font-sans text-lavender-500 mt-0.5 flex items-center gap-1 font-medium">
+                <Sparkles size={9} /> Microtarefas geradas
               </p>
             )}
           </div>
@@ -59,27 +68,31 @@ export function JournalComposer() {
       )}
 
       <div className="flex items-end gap-3">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="O que esta acontecendo agora?"
-          className="flex-1 bg-transparent text-ink-900 text-base placeholder:text-ink-600/50 resize-none outline-none font-sans"
-          rows={2}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-              handleSubmit()
-            }
-          }}
-        />
+        <div className="flex-1">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Registre algo..."
+            className="w-full bg-transparent text-charcoal-900 text-[15px] placeholder:text-charcoal-400 resize-none outline-none font-sans"
+            rows={2}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit()
+            }}
+          />
+          <div className="flex items-center gap-1.5 text-coral-400">
+            <Sparkles size={11} />
+            <span className="text-[10px] font-medium">Auto-tag IA</span>
+          </div>
+        </div>
         <button
           onClick={handleSubmit}
           disabled={!text.trim() || isPending}
-          className="w-10 h-10 bg-ink-900 text-sunlight-50 flex items-center justify-center rounded-full disabled:opacity-30 hover:bg-ink-600 transition-all flex-shrink-0"
+          className="w-10 h-10 gradient-coral text-white flex items-center justify-center rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex-shrink-0 shadow-md"
         >
           {isPending ? (
-            <div className="w-4 h-4 border-2 border-sunlight-50/30 border-t-sunlight-50 rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
-            <Send size={16} />
+            <Send size={14} />
           )}
         </button>
       </div>

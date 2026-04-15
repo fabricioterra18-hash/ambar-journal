@@ -4,7 +4,6 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2, Pencil, MoreHorizontal, X } from 'lucide-react'
 import { editCollection, removeCollection } from '@/lib/actions/collection-actions'
-import clsx from 'clsx'
 
 interface Props {
   collectionId: string
@@ -52,19 +51,12 @@ export function CollectionDetailActions({ collectionId, collectionName }: Props)
             if (e.key === 'Enter') handleRename()
             if (e.key === 'Escape') { setIsEditing(false); setName(collectionName) }
           }}
-          className="bg-sunlight-50 border border-amber-700/30 rounded-lg px-3 py-1.5 text-sm font-sans text-ink-900 outline-none w-40"
+          className="bg-sand-50 border border-coral-200 rounded-lg px-3 py-1.5 text-sm font-sans text-charcoal-900 outline-none w-36 focus:border-coral-400 transition-colors"
         />
-        <button
-          onClick={handleRename}
-          disabled={isPending}
-          className="text-xs px-3 py-1.5 bg-amber-700/10 text-amber-700 font-medium rounded-lg"
-        >
+        <button onClick={handleRename} disabled={isPending} className="text-xs px-3 py-1.5 gradient-coral text-white font-medium rounded-lg">
           Salvar
         </button>
-        <button
-          onClick={() => { setIsEditing(false); setName(collectionName) }}
-          className="text-ink-600/40 hover:text-ink-600"
-        >
+        <button onClick={() => { setIsEditing(false); setName(collectionName) }} className="text-charcoal-400 hover:text-charcoal-600">
           <X size={16} />
         </button>
       </div>
@@ -74,19 +66,12 @@ export function CollectionDetailActions({ collectionId, collectionName }: Props)
   if (isDeleting) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-xs text-clay-600 font-sans">Excluir coleção?</span>
-        <button
-          onClick={handleDelete}
-          disabled={isPending}
-          className="text-xs px-3 py-1.5 bg-clay-600/10 text-clay-600 font-medium rounded-lg disabled:opacity-50"
-        >
-          {isPending ? 'Excluindo...' : 'Sim, excluir'}
+        <span className="text-xs text-rose-500 font-sans font-medium">Excluir?</span>
+        <button onClick={handleDelete} disabled={isPending} className="text-xs px-3 py-1.5 bg-rose-50 text-rose-500 font-medium rounded-lg border border-rose-100 disabled:opacity-50">
+          {isPending ? 'Excluindo...' : 'Sim'}
         </button>
-        <button
-          onClick={() => setIsDeleting(false)}
-          className="text-xs px-3 py-1.5 bg-ink-900/5 text-ink-600 font-medium rounded-lg"
-        >
-          Cancelar
+        <button onClick={() => setIsDeleting(false)} className="text-xs px-3 py-1.5 bg-sand-100 text-charcoal-600 font-medium rounded-lg">
+          Nao
         </button>
       </div>
     )
@@ -94,25 +79,15 @@ export function CollectionDetailActions({ collectionId, collectionName }: Props)
 
   return (
     <div className="relative">
-      <button
-        onClick={() => setShowMenu(!showMenu)}
-        className="text-ink-600/60 hover:text-ink-900 p-2 rounded-xl hover:bg-fog-100 transition-colors"
-      >
-        <MoreHorizontal size={20} />
+      <button onClick={() => setShowMenu(!showMenu)} className="w-9 h-9 rounded-xl bg-sand-100 flex items-center justify-center text-charcoal-500 hover:bg-sand-200 transition-colors">
+        <MoreHorizontal size={18} />
       </button>
-
       {showMenu && (
-        <div className="absolute top-full right-0 mt-1 bg-sunlight-50 border-2 border-ink-900 rounded-xl shadow-lg z-20 py-1 min-w-[160px]">
-          <button
-            onClick={() => { setIsEditing(true); setShowMenu(false) }}
-            className="w-full text-left px-4 py-2.5 text-sm font-sans hover:bg-fog-100 flex items-center gap-2"
-          >
+        <div className="absolute top-full right-0 mt-1 bg-surface rounded-xl shadow-elevated z-20 py-1 min-w-[150px] border border-sand-200 animate-scale-in">
+          <button onClick={() => { setIsEditing(true); setShowMenu(false) }} className="w-full text-left px-3 py-2.5 text-sm font-sans hover:bg-sand-50 flex items-center gap-2 transition-colors">
             <Pencil size={14} /> Renomear
           </button>
-          <button
-            onClick={() => { setIsDeleting(true); setShowMenu(false) }}
-            className="w-full text-left px-4 py-2.5 text-sm font-sans hover:bg-fog-100 flex items-center gap-2 text-clay-600"
-          >
+          <button onClick={() => { setIsDeleting(true); setShowMenu(false) }} className="w-full text-left px-3 py-2.5 text-sm font-sans hover:bg-sand-50 flex items-center gap-2 text-rose-500 transition-colors">
             <Trash2 size={14} /> Excluir
           </button>
         </div>

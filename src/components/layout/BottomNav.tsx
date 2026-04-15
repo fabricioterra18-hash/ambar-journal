@@ -3,74 +3,93 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Calendar, Book, Grid, Sparkles, Settings } from 'lucide-react'
-import { Fab } from '@/components/ui/Fab'
+import { Home, BookOpen, BarChart3, Settings, Plus } from 'lucide-react'
 import { CaptureSheet } from '@/components/ui/CaptureSheet'
 import clsx from 'clsx'
 
 const navItems = [
-  { href: '/', icon: Calendar, label: 'HOJE' },
-  { href: '/journal', icon: Book, label: 'JOURNAL' },
-  // FAB goes in the middle
-  { href: '/collections', icon: Grid, label: 'COLEÇÕES' },
-  { href: '/insights', icon: Sparkles, label: 'INSIGHTS' },
+  { href: '/', icon: Home, label: 'Hoje' },
+  { href: '/journal', icon: BookOpen, label: 'Journal' },
+  // FAB center
+  { href: '/tracker', icon: BarChart3, label: 'Tracker' },
+  { href: '/settings', icon: Settings, label: 'Config' },
 ]
 
 export function BottomNav() {
   const [isCaptureOpen, setCaptureOpen] = useState(false)
   const pathname = usePathname()
 
-  // Hide on auth/onboarding pages
   if (pathname.startsWith('/auth') || pathname.startsWith('/onboarding')) {
     return null
   }
 
   return (
     <>
-      <div className="fixed bottom-0 w-full max-w-md bg-sunlight-50 border-t-2 border-ink-900 pb-safe pb-4 pt-2 px-6 flex justify-between items-center z-40 rounded-t-3xl">
-        {navItems.slice(0, 2).map((item) => {
-          const isActive = pathname === item.href
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={clsx(
-                'flex flex-col items-center gap-1 transition-colors',
-                isActive ? 'text-ink-900' : 'text-ink-600 hover:text-amber-700',
-                item.href === '/journal' && 'pr-8'
-              )}
+      <div className="fixed bottom-0 w-full max-w-md z-40">
+        <div className="relative bg-surface/90 backdrop-blur-xl border-t border-sand-200/60 safe-bottom px-2 pt-2 pb-3">
+          {/* FAB button - centered */}
+          <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-50">
+            <button
+              onClick={() => setCaptureOpen(true)}
+              className="w-14 h-14 gradient-coral rounded-2xl flex items-center justify-center shadow-elevated active:scale-95 transition-transform"
             >
-              <item.icon size={24} strokeWidth={isActive ? 2 : 1.5} />
-              <span className={clsx('text-[10px] tracking-wide', isActive ? 'font-bold' : 'font-medium')}>
-                {item.label}
-              </span>
-            </Link>
-          )
-        })}
+              <Plus size={24} className="text-white" strokeWidth={2.5} />
+            </button>
+          </div>
 
-        <div className="absolute left-1/2 -top-6 -translate-x-1/2">
-          <Fab onClick={() => setCaptureOpen(true)} />
+          <div className="flex items-center justify-around">
+            {navItems.slice(0, 2).map((item) => {
+              const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={clsx(
+                    'flex flex-col items-center gap-1 py-1 px-4 rounded-xl transition-all',
+                    isActive
+                      ? 'text-coral-500'
+                      : 'text-charcoal-400 active:text-charcoal-600'
+                  )}
+                >
+                  <item.icon size={22} strokeWidth={isActive ? 2.2 : 1.6} />
+                  <span className={clsx(
+                    'text-[10px] tracking-wide',
+                    isActive ? 'font-semibold' : 'font-medium'
+                  )}>
+                    {item.label}
+                  </span>
+                </Link>
+              )
+            })}
+
+            {/* Spacer for FAB */}
+            <div className="w-16" />
+
+            {navItems.slice(2).map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={clsx(
+                    'flex flex-col items-center gap-1 py-1 px-4 rounded-xl transition-all',
+                    isActive
+                      ? 'text-coral-500'
+                      : 'text-charcoal-400 active:text-charcoal-600'
+                  )}
+                >
+                  <item.icon size={22} strokeWidth={isActive ? 2.2 : 1.6} />
+                  <span className={clsx(
+                    'text-[10px] tracking-wide',
+                    isActive ? 'font-semibold' : 'font-medium'
+                  )}>
+                    {item.label}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
         </div>
-
-        {navItems.slice(2).map((item) => {
-          const isActive = pathname === item.href
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={clsx(
-                'flex flex-col items-center gap-1 transition-colors',
-                isActive ? 'text-ink-900' : 'text-ink-600 hover:text-amber-700',
-                item.href === '/collections' && 'pl-8'
-              )}
-            >
-              <item.icon size={24} strokeWidth={isActive ? 2 : 1.5} />
-              <span className={clsx('text-[10px] tracking-wide', isActive ? 'font-bold' : 'font-medium')}>
-                {item.label}
-              </span>
-            </Link>
-          )
-        })}
       </div>
 
       <CaptureSheet isOpen={isCaptureOpen} onClose={() => setCaptureOpen(false)} />

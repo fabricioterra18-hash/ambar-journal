@@ -1,66 +1,53 @@
 'use client'
 
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
-import clsx from 'clsx'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-interface DateNavProps {
+interface Props {
   currentDate: string
-  today: string
 }
 
-function shiftDate(date: string, days: number) {
-  const d = new Date(date + 'T12:00:00')
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
-}
+export function DateNav({ currentDate }: Props) {
+  const today = new Date().toISOString().split('T')[0]
 
-function formatShort(date: string) {
-  const d = new Date(date + 'T12:00:00')
-  return d.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric' })
-}
+  const current = new Date(currentDate + 'T12:00:00')
+  const prev = new Date(current)
+  prev.setDate(prev.getDate() - 1)
+  const next = new Date(current)
+  next.setDate(next.getDate() + 1)
 
-export function DateNav({ currentDate, today }: DateNavProps) {
-  const prevDate = shiftDate(currentDate, -1)
-  const nextDate = shiftDate(currentDate, 1)
+  const prevStr = prev.toISOString().split('T')[0]
+  const nextStr = next.toISOString().split('T')[0]
   const isToday = currentDate === today
-  const isFuture = currentDate > today
 
   return (
-    <div className="flex items-center justify-between mb-6 bg-surface-lowest rounded-2xl p-2 border border-sunlight-200/20">
+    <div className="flex items-center gap-2">
       <Link
-        href={`/journal?date=${prevDate}`}
-        className="flex items-center gap-1 text-ink-600 hover:text-ink-900 px-3 py-2 rounded-xl hover:bg-fog-100 transition-colors"
+        href={`/journal?date=${prevStr}`}
+        className="w-9 h-9 rounded-xl bg-sand-100 flex items-center justify-center text-charcoal-500 hover:bg-sand-200 active:scale-95 transition-all"
       >
-        <ChevronLeft size={18} />
-        <span className="text-xs font-sans font-medium">{formatShort(prevDate)}</span>
+        <ChevronLeft size={16} />
       </Link>
 
-      {!isToday && (
+      {!isToday ? (
         <Link
           href="/journal"
-          className="flex items-center gap-1.5 text-amber-700 px-3 py-2 rounded-xl bg-amber-700/10 text-xs font-sans font-bold"
+          className="px-3 py-1.5 bg-coral-50 text-coral-500 text-xs font-semibold rounded-lg hover:bg-coral-100 transition-colors"
         >
-          <Calendar size={14} />
           Hoje
         </Link>
+      ) : (
+        <span className="px-3 py-1.5 bg-coral-500 text-white text-xs font-semibold rounded-lg">
+          Hoje
+        </span>
       )}
 
-      {isToday && (
-        <span className="text-xs font-sans font-bold text-amber-700 px-3 py-2">Hoje</span>
-      )}
-
-      {!isFuture && (
-        <Link
-          href={`/journal?date=${nextDate}`}
-          className="flex items-center gap-1 text-ink-600 hover:text-ink-900 px-3 py-2 rounded-xl hover:bg-fog-100 transition-colors"
-        >
-          <span className="text-xs font-sans font-medium">{formatShort(nextDate)}</span>
-          <ChevronRight size={18} />
-        </Link>
-      )}
-
-      {isFuture && <div className="w-20" />}
+      <Link
+        href={`/journal?date=${nextStr}`}
+        className="w-9 h-9 rounded-xl bg-sand-100 flex items-center justify-center text-charcoal-500 hover:bg-sand-200 active:scale-95 transition-all"
+      >
+        <ChevronRight size={16} />
+      </Link>
     </div>
   )
 }

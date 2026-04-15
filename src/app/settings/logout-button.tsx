@@ -11,7 +11,7 @@ export function LogoutButton() {
     <button
       onClick={() => startTransition(() => logout())}
       disabled={isPending}
-      className="w-full flex items-center justify-center gap-3 bg-clay-600/10 text-clay-600 p-4 rounded-2xl font-sans font-medium hover:bg-clay-600/20 transition-colors"
+      className="w-full flex items-center justify-center gap-3 bg-rose-50 text-rose-500 p-4 rounded-2xl font-sans font-semibold hover:bg-rose-100 transition-colors border border-rose-100 active:scale-98"
     >
       <LogOut size={18} />
       {isPending ? 'Saindo...' : 'Sair da conta'}

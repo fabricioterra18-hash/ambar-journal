@@ -1,24 +1,39 @@
-import type { Metadata } from 'next';
-import { Courier_Prime, Archivo_Black } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
+import { DM_Sans, DM_Serif_Display } from 'next/font/google';
 import './globals.css';
 import { BottomNav } from '@/components/layout/BottomNav';
 
-const typewriter = Courier_Prime({
-  weight: ['400', '700'],
+const dmSans = DM_Sans({
+  weight: ['400', '500', '600', '700'],
   subsets: ['latin'],
-  variable: '--font-inter', // keeping variables same to avoid breaking css
+  variable: '--font-dm-sans',
+  display: 'swap',
 });
 
-const stylizedHeavy = Archivo_Black({
+const dmSerif = DM_Serif_Display({
   weight: ['400'],
   subsets: ['latin'],
-  variable: '--font-fraunces',
+  variable: '--font-dm-serif',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
   title: 'Âmbar Journal',
-  description: 'O seu bullet journal digital, com IA.',
-  manifest: '/manifest.json', // PWA preparations
+  description: 'Seu Bullet Journal digital com inteligência artificial.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Âmbar',
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#FAF6F1',
 };
 
 export default function RootLayout({
@@ -28,8 +43,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${typewriter.variable} ${stylizedHeavy.variable} font-sans antialiased bg-fog-100 sm:bg-stone-200`}>
-        <div className="mx-auto max-w-md min-h-screen bg-fog-100 relative sm:shadow-2xl overflow-hidden flex flex-col">
+      <body className={`${dmSans.variable} ${dmSerif.variable} font-sans antialiased`}>
+        <div className="mx-auto max-w-md min-h-screen bg-background relative sm:shadow-2xl overflow-hidden flex flex-col">
           {children}
           <BottomNav />
         </div>

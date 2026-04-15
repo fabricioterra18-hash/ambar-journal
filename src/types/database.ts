@@ -146,6 +146,40 @@ export interface Integration {
   updated_at: string
 }
 
+// ── Mood & Stats ──
+
+export type MoodScore = 1 | 2 | 3 | 4 | 5
+export type MoodLabel = 'bad' | 'meh' | 'okay' | 'good' | 'great'
+
+export interface MoodEntry {
+  id: string
+  workspace_id: string
+  user_id: string
+  entry_date: string
+  mood_score: MoodScore
+  mood_label: MoodLabel
+  note: string | null
+  energy_level: MoodScore | null
+  tags: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface DailyStats {
+  id: string
+  workspace_id: string
+  stat_date: string
+  tasks_created: number
+  tasks_completed: number
+  tasks_migrated: number
+  events_count: number
+  notes_count: number
+  insights_count: number
+  productive_score: number
+  created_at: string
+  updated_at: string
+}
+
 // ── Insert types (omit auto-generated fields) ──
 
 export type JournalItemInsert = Omit<JournalItem, 'id' | 'created_at' | 'updated_at' | 'deleted_at' | 'microtasks' | 'collection'>
