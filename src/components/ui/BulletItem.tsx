@@ -16,6 +16,7 @@ import {
   generateMicrotasksForItem, toggleMicrotask, removeMicrotask,
   regenerateMicrotasks, simplifyMicrotasksAction, expandMicrotaskAction
 } from '@/lib/actions/microtask-actions'
+import { toLocalDateKey, todayISO } from '@/lib/utils'
 import type { JournalItem, Microtask, BulletType as BType, Collection } from '@/types/database'
 
 export type BulletType = 'task' | 'event' | 'note' | 'priority' | 'insight' | 'migrated' | 'completed' | 'scheduled'
@@ -140,11 +141,10 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
 
   function handleMigrate(daysAhead: number) {
     if (!item) return
-    const today = new Date()
-    const target = new Date(today)
-    target.setDate(today.getDate() + daysAhead)
-    const toDate = target.toISOString().split('T')[0]
-    const fromDate = new Date().toISOString().split('T')[0]
+    const target = new Date()
+    target.setDate(target.getDate() + daysAhead)
+    const toDate = toLocalDateKey(target)
+    const fromDate = todayISO()
     startTransition(() => migrateBulletToDate(item.id, item.entry_id, fromDate, toDate))
     setShowMigrateMenu(false)
     setShowActions(false)

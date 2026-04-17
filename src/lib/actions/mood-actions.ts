@@ -5,6 +5,7 @@ import { getWorkspace } from '@/lib/services/workspace'
 import { upsertMood } from '@/lib/services/mood'
 import { createClient } from '@/lib/supabase/server'
 import type { MoodScore } from '@/types/database'
+import { todayISO } from '@/lib/utils'
 
 export async function logMood(formData: FormData) {
   const score = Number(formData.get('score')) as MoodScore
@@ -20,7 +21,7 @@ export async function logMood(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayISO()
 
   await upsertMood(workspace.id, user.id, today, score, note, energyLevel, tags)
   revalidatePath('/')
@@ -32,7 +33,7 @@ export async function logMoodQuick(score: MoodScore) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayISO()
 
   await upsertMood(workspace.id, user.id, today, score)
   revalidatePath('/')

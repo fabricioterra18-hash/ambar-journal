@@ -6,7 +6,7 @@ import { getMoodForDate, getWeekMoods } from '@/lib/services/mood'
 import { getDailySummary } from '@/lib/actions/insight-actions'
 import { BulletItem } from '@/components/ui/BulletItem'
 import { MoodWidget } from '@/components/ui/MoodWidget'
-import { formatDateBR, todayISO, getGreeting } from '@/lib/utils'
+import { formatDateBR, todayISO, getGreeting, yesterdayISO } from '@/lib/utils'
 import { Sparkles, ArrowRight, ChevronRight, Zap } from 'lucide-react'
 import Link from 'next/link'
 
@@ -22,9 +22,7 @@ export default async function Home() {
   const todayItems = await getItemsForEntry(entry.id)
 
   // Yesterday's pending items
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().split('T')[0]
+  const yesterdayStr = yesterdayISO()
   const yesterdayEntries = await getEntriesForDate(workspace.id, yesterdayStr)
   let pendingFromYesterday: typeof todayItems = []
   for (const e of yesterdayEntries) {

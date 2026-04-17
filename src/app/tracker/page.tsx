@@ -4,7 +4,7 @@ import { getMoodHistory } from '@/lib/services/mood'
 import { getWeeklySummary } from '@/lib/actions/insight-actions'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { Sparkles, TrendingUp, Flame, Target, Heart, Zap } from 'lucide-react'
-import { todayISO } from '@/lib/utils'
+import { todayISO, toLocalDateKey } from '@/lib/utils'
 import Link from 'next/link'
 
 export default async function TrackerPage() {
@@ -42,7 +42,7 @@ export default async function TrackerPage() {
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - (6 - i))
-    return d.toISOString().split('T')[0]
+    return toLocalDateKey(d)
   })
 
   const dailyCounts = last7.map(date => {

@@ -5,10 +5,7 @@ import { getPreferences } from '@/lib/services/preferences'
 import { getItemsForWorkspace } from '@/lib/services/items'
 import { generateDailySummary, generateWeeklySummary } from '@/lib/ai/reflect'
 import { createClient } from '@/lib/supabase/server'
-
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
+import { todayISO, toLocalDateKey, daysAgoISO } from '@/lib/utils'
 
 export async function getDailySummary() {
   const prefs = await getPreferences()
@@ -67,7 +64,7 @@ export async function getWeeklySummary() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date()
     d.setDate(d.getDate() - i)
-    dates.push(d.toISOString().split('T')[0])
+    dates.push(toLocalDateKey(d))
   }
 
   const dailyItems: { date: string; items: { text: string; status: string; bullet_type: string }[] }[] = []

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import clsx from 'clsx'
+import { todayISO } from '@/lib/utils'
 import type { MoodEntry } from '@/types/database'
 
 const MONTHS_PT = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -32,8 +33,7 @@ export function CalendarWidget({ moodHistory, activeDates = [] }: Props) {
   const startIdx = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1
   const daysInMonth = new Date(year, month + 1, 0).getDate()
 
-  const today = new Date()
-  const todayStr = today.toISOString().split('T')[0]
+  const todayStr = todayISO()
 
   // Build mood map for this month
   const moodMap = new Map<string, MoodEntry>()

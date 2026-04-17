@@ -4,19 +4,150 @@ import { revalidatePath } from 'next/cache'
 import { getWorkspace } from '@/lib/services/workspace'
 import { getOrCreateDailyJournal, getOrCreateEntry, getOrCreateInbox } from '@/lib/services/journal'
 import { createItem, updateItem, deleteItem, migrateItem } from '@/lib/services/items'
-import { classifyInput } from '@/lib/ai/classify'
+import { classifyInput, type ClassifiedItem, type ClassificationResult } from '@/lib/ai/classify'
 import { getCollections } from '@/lib/services/collections'
 import { getPreferences } from '@/lib/services/preferences'
-import type { BulletType, BulletStatus } from '@/types/database'
+import type { BulletType } from '@/types/database'
+import { todayISO } from '@/lib/utils'
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
+// ── Manual capture (no AI) ──
+
+export async function captureManualBullet(data: {
+  text: string
+  bullet_type: BulletType
+  date?: string | null
+  time?: string | null
+  priority?: number | null
+  collection_id?: string | null
+}) {
+  if (!data.text?.trim()) return null
+
+  const workspace = await getWorkspace()
+  const targetDate = data.date || todayISO()
+
+  const journal = await getOrCreateDailyJournal(workspace.id, targetDate)
+  const entry = await getOrCreateEntry(workspace.id, journal.id, targetDate)
+
+  let dueAt: string | null = null
+  if (data.date) {
+    dueAt = data.time
+      ? `${data.date}T${data.time}:00`
+      : `${data.date}T00:00:00`
+  }
+
+  const item = await createItem({
+    workspace_id: workspace.id,
+    entry_id: entry.id,
+    parent_item_id: null,
+    position: 0,
+    bullet_type: data.bullet_type,
+    status: 'open',
+    text: data.text.trim(),
+    due_at: dueAt,
+    start_at: data.time && data.date ? `${data.date}T${data.time}:00` : null,
+    duration_min: null,
+    priority: data.priority ?? null,
+    collection_id: data.collection_id ?? null,
+    ai_generated: false,
+  })
+
+  revalidatePath('/')
+  revalidatePath('/journal')
+
+  return { id: item.id, bullet_type: data.bullet_type, text: data.text.trim() }
 }
 
-export async function captureBullet(formData: FormData) {
-  const result = await captureBulletWithFeedback(formData)
-  return result
+// ── AI-assisted classification (returns suggestions, does NOT save) ──
+
+export async function classifyWithAI(text: string): Promise<ClassificationResult> {
+  const workspace = await getWorkspace()
+  const collections = await getCollections(workspace.id)
+  const collectionNames = collections.map(c => c.name)
+  return classifyInput(text, collectionNames)
 }
+
+// ── Confirm and save AI suggestions (saves all items) ──
+
+export async function confirmAISuggestions(items: ClassifiedItem[]) {
+  if (!items.length) return []
+
+  const workspace = await getWorkspace()
+  const collections = await getCollections(workspace.id)
+  const savedItems = []
+
+  for (const item of items) {
+    const targetDate = item.suggested_date || todayISO()
+    const journal = await getOrCreateDailyJournal(workspace.id, targetDate)
+    const entry = await getOrCreateEntry(workspace.id, journal.id, targetDate)
+
+    let dueAt: string | null = null
+    if (item.suggested_date) {
+      dueAt = item.suggested_time
+        ? `${item.suggested_date}T${item.suggested_time}:00`
+        : `${item.suggested_date}T00:00:00`
+    }
+
+    let collectionId: string | null = null
+    if (item.suggested_collection) {
+      const match = collections.find(c =>
+        c.name.toLowerCase() === item.suggested_collection!.toLowerCase()
+      )
+      if (match) collectionId = match.id
+    }
+
+    const saved = await createItem({
+      workspace_id: workspace.id,
+      entry_id: entry.id,
+      parent_item_id: null,
+      position: 0,
+      bullet_type: item.bullet_type,
+      status: 'open',
+      text: item.clean_text,
+      due_at: dueAt,
+      start_at: item.suggested_time && item.suggested_date
+        ? `${item.suggested_date}T${item.suggested_time}:00`
+        : null,
+      duration_min: null,
+      priority: item.priority,
+      collection_id: collectionId,
+      ai_generated: true,
+    })
+
+    // Auto-generate microtasks if AI suggests
+    if (item.should_break_into_microtasks && saved.id) {
+      try {
+        const { generateMicrotasks } = await import('@/lib/ai/microtasks')
+        const { createMicrotasks } = await import('@/lib/services/microtasks')
+        const result = await generateMicrotasks(item.clean_text)
+        await createMicrotasks(result.microtasks.map((mt, i) => ({
+          workspace_id: workspace.id,
+          parent_item_id: saved.id,
+          title: mt.title,
+          description: mt.description,
+          status: 'open',
+          position: i,
+          ai_generated: true,
+        })))
+      } catch {
+        // Microtask generation failed silently
+      }
+    }
+
+    savedItems.push({
+      id: saved.id,
+      bullet_type: item.bullet_type,
+      text: item.clean_text,
+      has_microtasks: item.should_break_into_microtasks,
+    })
+  }
+
+  revalidatePath('/')
+  revalidatePath('/journal')
+
+  return savedItems
+}
+
+// ── Legacy: capture with auto-AI (kept for JournalComposer inline) ──
 
 export async function captureBulletWithFeedback(formData: FormData) {
   const text = formData.get('text') as string
@@ -44,18 +175,22 @@ export async function captureBulletWithFeedback(formData: FormData) {
       const collectionNames = collections.map(c => c.name)
       const classification = await classifyInput(text, collectionNames)
 
-      bulletType = classification.bullet_type
-      priority = classification.priority
-      cleanText = classification.clean_text
-      dueAt = classification.suggested_date ? `${classification.suggested_date}T00:00:00Z` : null
-      shouldBreakIntoMicrotasks = classification.should_break_into_microtasks
-      aiUsed = true
+      // Use first item from multi-item result
+      const first = classification.items[0]
+      if (first) {
+        bulletType = first.bullet_type
+        priority = first.priority
+        cleanText = first.clean_text
+        dueAt = first.suggested_date ? `${first.suggested_date}T00:00:00` : null
+        shouldBreakIntoMicrotasks = first.should_break_into_microtasks
+        aiUsed = true
 
-      if (classification.suggested_collection) {
-        const match = collections.find(c =>
-          c.name.toLowerCase() === classification.suggested_collection!.toLowerCase()
-        )
-        if (match) collectionId = match.id
+        if (first.suggested_collection) {
+          const match = collections.find(c =>
+            c.name.toLowerCase() === first.suggested_collection!.toLowerCase()
+          )
+          if (match) collectionId = match.id
+        }
       }
     }
   } catch {
@@ -78,7 +213,6 @@ export async function captureBulletWithFeedback(formData: FormData) {
     ai_generated: aiUsed,
   })
 
-  // Auto-generate microtasks if AI suggests it
   if (shouldBreakIntoMicrotasks && item.id) {
     try {
       const { generateMicrotasks } = await import('@/lib/ai/microtasks')
@@ -109,6 +243,8 @@ export async function captureBulletWithFeedback(formData: FormData) {
   }
 }
 
+// ── Quick capture to inbox (no AI, no classification) ──
+
 export async function captureToInbox(formData: FormData) {
   const text = formData.get('text') as string
   if (!text?.trim()) return
@@ -138,6 +274,8 @@ export async function captureToInbox(formData: FormData) {
   revalidatePath('/journal')
 }
 
+// ── Item mutations ──
+
 export async function completeBullet(itemId: string) {
   await updateItem(itemId, { status: 'completed' })
   revalidatePath('/')
@@ -162,6 +300,18 @@ export async function updateBulletType(itemId: string, bulletType: BulletType) {
   revalidatePath('/journal')
 }
 
+export async function updateBulletPriority(itemId: string, priority: number | null) {
+  await updateItem(itemId, { priority })
+  revalidatePath('/')
+  revalidatePath('/journal')
+}
+
+export async function updateBulletDue(itemId: string, dueAt: string | null) {
+  await updateItem(itemId, { due_at: dueAt })
+  revalidatePath('/')
+  revalidatePath('/journal')
+}
+
 export async function archiveBullet(itemId: string) {
   await updateItem(itemId, { status: 'archived' })
   revalidatePath('/')
@@ -179,7 +329,7 @@ export async function migrateBulletToDate(
   fromEntryId: string,
   fromDate: string,
   toDate: string,
-  reason?: string
+  reason?: string,
 ) {
   const workspace = await getWorkspace()
   const journal = await getOrCreateDailyJournal(workspace.id, toDate)

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { toLocalDateKey } from '@/lib/utils'
 import type { MoodEntry, MoodScore, MoodLabel } from '@/types/database'
 
 const MOOD_LABELS: Record<MoodScore, MoodLabel> = {
@@ -29,7 +30,7 @@ export async function getMoodHistory(workspaceId: string, days: number = 30): Pr
     .from('mood_entries')
     .select('*')
     .eq('workspace_id', workspaceId)
-    .gte('entry_date', from.toISOString().split('T')[0])
+    .gte('entry_date', toLocalDateKey(from))
     .order('entry_date', { ascending: true })
 
   if (error) throw error
@@ -75,7 +76,7 @@ export async function getWeekMoods(workspaceId: string): Promise<MoodEntry[]> {
     .from('mood_entries')
     .select('*')
     .eq('workspace_id', workspaceId)
-    .gte('entry_date', from.toISOString().split('T')[0])
+    .gte('entry_date', toLocalDateKey(from))
     .order('entry_date', { ascending: true })
 
   return data ?? []

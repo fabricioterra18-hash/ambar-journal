@@ -2,22 +2,17 @@
 
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { todayISO, addDays } from '@/lib/utils'
 
 interface Props {
   currentDate: string
 }
 
 export function DateNav({ currentDate }: Props) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayISO()
 
-  const current = new Date(currentDate + 'T12:00:00')
-  const prev = new Date(current)
-  prev.setDate(prev.getDate() - 1)
-  const next = new Date(current)
-  next.setDate(next.getDate() + 1)
-
-  const prevStr = prev.toISOString().split('T')[0]
-  const nextStr = next.toISOString().split('T')[0]
+  const prevStr = addDays(currentDate, -1)
+  const nextStr = addDays(currentDate, 1)
   const isToday = currentDate === today
 
   return (

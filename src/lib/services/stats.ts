@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { toLocalDateKey } from '@/lib/utils'
 import type { DailyStats } from '@/types/database'
 
 export async function getDailyStatsForDate(workspaceId: string, date: string): Promise<DailyStats | null> {
@@ -21,7 +22,7 @@ export async function getStatsHistory(workspaceId: string, days: number = 7): Pr
     .from('daily_stats')
     .select('*')
     .eq('workspace_id', workspaceId)
-    .gte('stat_date', from.toISOString().split('T')[0])
+    .gte('stat_date', toLocalDateKey(from))
     .order('stat_date', { ascending: true })
 
   return data ?? []
