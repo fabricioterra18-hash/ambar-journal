@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getWorkspace } from '@/lib/services/workspace'
 import { createMicrotasks, updateMicrotask, deleteMicrotask, deleteAllMicrotasks, getMicrotasks } from '@/lib/services/microtasks'
-import { generateMicrotasks, expandMicrotask, simplifyMicrotasks } from '@/lib/ai/microtasks'
+import { generateMicrotasks, expandMicrotask, simplifyMicrotasks, getNextStep, type NextStep } from '@/lib/ai/microtasks'
 import { createClient } from '@/lib/supabase/server'
 
 export async function generateMicrotasksForItem(itemId: string) {
@@ -161,4 +161,22 @@ export async function removeMicrotask(microtaskId: string) {
 export async function regenerateMicrotasks(itemId: string) {
   await deleteAllMicrotasks(itemId)
   return generateMicrotasksForItem(itemId)
+}
+
+export async function getNextStepAction(itemId: string): Promise<NextStep> {
+  const supabase = await createClient()
+
+  const { data: item } = await supabase
+    .from('journal_items')
+    .select('text')
+    .eq('id', itemId)
+    .single()
+
+  if (!item) throw new Error('Item not found')
+
+  const microtasks = await getMicrotasks(itemId)
+  const open = microtasks.filter(m => m.status === 'open').map(m => m.title)
+  const done = microtasks.filter(m => m.status === 'completed').map(m => m.title)
+
+  return getNextStep(item.text, open, done)
 }

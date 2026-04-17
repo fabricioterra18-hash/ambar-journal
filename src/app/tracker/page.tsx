@@ -11,28 +11,23 @@ export default async function TrackerPage() {
   const workspace = await getWorkspace()
   const today = todayISO()
 
-  // Get all workspace items
-  const allItems = await getItemsForWorkspace(workspace.id, { limit: 200 })
+  const [allItems, moodHistory, weeklySummary] = await Promise.all([
+    getItemsForWorkspace(workspace.id, { limit: 200 }),
+    getMoodHistory(workspace.id, 30).catch(() => []),
+    getWeeklySummary().catch(() => null),
+  ])
+
   const totalTasks = allItems.filter(i => i.bullet_type === 'task')
   const completedTasks = totalTasks.filter(i => i.status === 'completed')
   const openTasks = totalTasks.filter(i => i.status === 'open')
-  const migratedTasks = totalTasks.filter(i => i.status === 'migrated')
 
   const completionRate = totalTasks.length > 0
     ? Math.round((completedTasks.length / totalTasks.length) * 100)
     : 0
 
-  // Mood history
-  let moodHistory: Awaited<ReturnType<typeof getMoodHistory>> = []
-  try { moodHistory = await getMoodHistory(workspace.id, 30) } catch {}
-
   const avgMood = moodHistory.length > 0
     ? (moodHistory.reduce((sum, m) => sum + m.mood_score, 0) / moodHistory.length)
     : 0
-
-  // AI weekly summary
-  let weeklySummary: Awaited<ReturnType<typeof getWeeklySummary>> = null
-  try { weeklySummary = await getWeeklySummary() } catch {}
 
   // Week stats (last 7 days)
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']

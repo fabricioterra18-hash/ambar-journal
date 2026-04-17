@@ -57,7 +57,7 @@ export async function createItem(item: JournalItemInsert): Promise<JournalItem> 
 
 export async function updateItem(
   itemId: string,
-  updates: Partial<Pick<JournalItem, 'text' | 'bullet_type' | 'status' | 'due_at' | 'priority' | 'collection_id'>>
+  updates: Partial<Pick<JournalItem, 'text' | 'bullet_type' | 'status' | 'due_at' | 'start_at' | 'priority' | 'collection_id'>>,
 ): Promise<JournalItem> {
   const supabase = await createClient()
 
@@ -124,6 +124,82 @@ export async function migrateItem(
     })
 
   if (migError) throw migError
+}
+
+/**
+ * Read-only fetch of items for a specific date (NO auto-create of journal/entry).
+ * Single query via inner join.
+ */
+export async function getItemsForDate(workspaceId: string, dateKey: string): Promise<JournalItem[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('journal_items')
+    .select('*, microtasks(*), journal_entries!inner(entry_date, deleted_at)')
+    .eq('workspace_id', workspaceId)
+    .eq('journal_entries.entry_date', dateKey)
+    .is('deleted_at', null)
+    .is('journal_entries.deleted_at', null)
+    .order('position', { ascending: true })
+
+  if (error) throw error
+  return (data ?? []) as unknown as JournalItem[]
+}
+
+/**
+ * Returns distinct YYYY-MM-DD dates that have at least one non-deleted item
+ * within [fromKey, toKey] inclusive. Used for calendar dots.
+ */
+export async function getActiveDatesInRange(
+  workspaceId: string,
+  fromKey: string,
+  toKey: string,
+): Promise<string[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('journal_entries')
+    .select('entry_date, journal_items!inner(id)')
+    .eq('workspace_id', workspaceId)
+    .gte('entry_date', fromKey)
+    .lte('entry_date', toKey)
+    .is('deleted_at', null)
+    .is('journal_items.deleted_at', null)
+
+  if (error) throw error
+  const set = new Set<string>()
+  for (const row of data ?? []) {
+    if ((row as { journal_items?: unknown[] }).journal_items?.length) {
+      set.add((row as { entry_date: string }).entry_date)
+    }
+  }
+  return Array.from(set)
+}
+
+/**
+ * Returns pending (open) task items from dates BEFORE a given date.
+ * Used for "pendências migram corretamente" and rollover logic.
+ */
+export async function getPendingTasksBefore(
+  workspaceId: string,
+  beforeDateKey: string,
+  limit = 30,
+): Promise<JournalItem[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('journal_items')
+    .select('*, journal_entries!inner(entry_date)')
+    .eq('workspace_id', workspaceId)
+    .eq('status', 'open')
+    .eq('bullet_type', 'task')
+    .is('deleted_at', null)
+    .lt('journal_entries.entry_date', beforeDateKey)
+    .order('journal_entries(entry_date)', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return (data ?? []) as unknown as JournalItem[]
 }
 
 export async function searchItems(workspaceId: string, query: string): Promise<JournalItem[]> {

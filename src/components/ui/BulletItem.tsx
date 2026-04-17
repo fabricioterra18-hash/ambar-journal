@@ -5,18 +5,19 @@ import clsx from 'clsx'
 import {
   Check, ChevronRight, ChevronLeft, Star, AlertCircle,
   Trash2, Sparkles, MoreHorizontal, Pencil,
-  Calendar, Folder, X, ListChecks, Minimize2, Maximize2
+  Calendar, Folder, X, ListChecks, Minimize2, Maximize2, Zap,
 } from 'lucide-react'
 import {
   completeBullet, reopenBullet, removeBullet,
   updateBulletText, updateBulletType, archiveBullet,
-  migrateBulletToDate, assignToCollection
+  migrateBulletToDate, assignToCollection, updateBulletPriority,
 } from '@/lib/actions/bullet-actions'
 import {
   generateMicrotasksForItem, toggleMicrotask, removeMicrotask,
-  regenerateMicrotasks, simplifyMicrotasksAction, expandMicrotaskAction
+  regenerateMicrotasks, simplifyMicrotasksAction, expandMicrotaskAction,
+  getNextStepAction,
 } from '@/lib/actions/microtask-actions'
-import { toLocalDateKey, todayISO } from '@/lib/utils'
+import { toLocalDateKey, todayISO, isPast } from '@/lib/utils'
 import type { JournalItem, Microtask, BulletType as BType, Collection } from '@/types/database'
 
 export type BulletType = 'task' | 'event' | 'note' | 'priority' | 'insight' | 'migrated' | 'completed' | 'scheduled'
@@ -97,6 +98,8 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
   const [showCollectionMenu, setShowCollectionMenu] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [microtasksLoading, setMicrotasksLoading] = useState(false)
+  const [nextStep, setNextStep] = useState<{ step: string; why: string } | null>(null)
+  const [nextStepLoading, setNextStepLoading] = useState(false)
   const editRef = useRef<HTMLTextAreaElement>(null)
 
   const bulletType = item
@@ -161,6 +164,13 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
     startTransition(() => removeBullet(item.id))
   }
 
+  function handleToggleFocus() {
+    if (!item) return
+    // Ciclo: null → 2 (importante) → 1 (em foco) → null
+    const next = item.priority === null ? 2 : item.priority === 2 ? 1 : null
+    startTransition(() => updateBulletPriority(item.id, next))
+  }
+
   function handleArchive() {
     if (!item) return
     startTransition(() => archiveBullet(item.id))
@@ -191,6 +201,19 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
     startTransition(async () => {
       try { await simplifyMicrotasksAction(item.id) }
       finally { setMicrotasksLoading(false) }
+    })
+  }
+
+  function handleNextStep() {
+    if (!item) return
+    setNextStepLoading(true)
+    startTransition(async () => {
+      try {
+        const result = await getNextStepAction(item.id)
+        setNextStep(result)
+      } finally {
+        setNextStepLoading(false)
+      }
     })
   }
 
@@ -250,6 +273,23 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
             <>
               <p className={clsx('text-[15px] leading-relaxed font-sans', config.color)}>{text}</p>
               <div className="flex items-center gap-2 flex-wrap mt-1">
+                {/* Priority badges */}
+                {item?.priority === 1 && (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-coral-50 text-coral-600 font-semibold">
+                    🎯 Em Foco
+                  </span>
+                )}
+                {item?.priority === 2 && (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-honey-50 text-honey-600 font-medium">
+                    ⭐ Importante
+                  </span>
+                )}
+                {/* Atrasado badge */}
+                {item?.due_at && item.status === 'open' && isPast(item.due_at.slice(0, 10)) && (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-500 font-medium">
+                    ⚠️ Atrasado
+                  </span>
+                )}
                 {/* AI badge */}
                 {item?.ai_generated && (
                   <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-lavender-50 text-lavender-500 font-medium">
@@ -298,6 +338,14 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
               <ActionBtn icon={<ChevronLeft size={12} />} label="Reabrir" variant="coral" onClick={handleToggle} />
             )}
             <ActionBtn icon={<Pencil size={12} />} label="Editar" variant="default" onClick={() => { setIsEditing(true); setShowActions(false) }} />
+
+            {/* Priority toggle */}
+            <ActionBtn
+              icon={item.priority === 1 ? <span className="text-[11px]">🎯</span> : item.priority === 2 ? <span className="text-[11px]">⭐</span> : <Star size={12} />}
+              label={item.priority === 1 ? 'Em Foco' : item.priority === 2 ? 'Importante' : 'Foco'}
+              variant={item.priority === 1 ? 'coral' : item.priority === 2 ? 'sage' : 'default'}
+              onClick={handleToggleFocus}
+            />
 
             {/* Type change */}
             <div className="relative">
@@ -380,12 +428,29 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
           {microtasks.map((mt) => (
             <MicrotaskRow key={mt.id} microtask={mt} itemId={item!.id} />
           ))}
+          {/* Próximo passo */}
+          {nextStep && (
+            <div className="mt-2 bg-honey-50 border border-honey-200 rounded-xl p-3 flex items-start gap-2 animate-scale-in">
+              <Zap size={14} className="text-honey-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-sans font-semibold text-charcoal-900">{nextStep.step}</p>
+                <p className="text-[10px] font-sans text-charcoal-400 mt-0.5">{nextStep.why}</p>
+              </div>
+              <button onClick={() => setNextStep(null)} className="text-charcoal-300 hover:text-charcoal-500">
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
           <div className="flex gap-3 mt-2 flex-wrap">
             <button onClick={handleRegenerate} disabled={microtasksLoading} className="text-xs text-coral-500 font-medium flex items-center gap-1 hover:text-coral-600 transition-colors">
               <Sparkles size={10} /> {microtasksLoading ? 'Regenerando...' : 'Regenerar'}
             </button>
             <button onClick={handleSimplify} disabled={microtasksLoading} className="text-xs text-charcoal-400 font-medium flex items-center gap-1 hover:text-charcoal-600 transition-colors">
               <Minimize2 size={10} /> Simplificar
+            </button>
+            <button onClick={handleNextStep} disabled={nextStepLoading} className="text-xs text-honey-600 font-medium flex items-center gap-1 hover:text-honey-700 transition-colors">
+              <Zap size={10} /> {nextStepLoading ? 'Analisando...' : 'Próximo passo'}
             </button>
           </div>
         </div>
