@@ -184,7 +184,7 @@ export async function getPendingTasksBefore(
   workspaceId: string,
   beforeDateKey: string,
   limit = 30,
-): Promise<JournalItem[]> {
+): Promise<(JournalItem & { entry_date: string })[]> {
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -197,6 +197,75 @@ export async function getPendingTasksBefore(
     .lt('journal_entries.entry_date', beforeDateKey)
     .order('journal_entries(entry_date)', { ascending: false })
     .limit(limit)
+
+  if (error) throw error
+  return (data ?? []).map((row) => {
+    const r = row as JournalItem & { journal_entries?: { entry_date: string } }
+    return { ...r, entry_date: r.journal_entries?.entry_date ?? '' }
+  })
+}
+
+/**
+ * Retorna datas ativas (com ao menos um item não deletado) dentro de um mês específico.
+ * Usado pelo calendário para marcar pontos de forma dinâmica ao navegar entre meses.
+ */
+export async function getActiveDatesForMonth(
+  workspaceId: string,
+  year: number,
+  month: number, // 1-12
+): Promise<string[]> {
+  const mm = String(month).padStart(2, '0')
+  const fromKey = `${year}-${mm}-01`
+  const lastDay = new Date(year, month, 0).getDate()
+  const toKey = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`
+  return getActiveDatesInRange(workspaceId, fromKey, toKey)
+}
+
+/**
+ * Conta quantas vezes cada item foi migrado. UMA query para todos os IDs.
+ * Usado para detectar padrão de adiamento recorrente.
+ */
+export async function getMigrationCountsForItems(
+  workspaceId: string,
+  itemIds: string[],
+): Promise<Record<string, number>> {
+  if (!itemIds.length) return {}
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('item_migrations')
+    .select('item_id')
+    .eq('workspace_id', workspaceId)
+    .in('item_id', itemIds)
+
+  if (error) return {}
+  const counts: Record<string, number> = {}
+  for (const row of data ?? []) {
+    const id = (row as { item_id: string }).item_id
+    counts[id] = (counts[id] ?? 0) + 1
+  }
+  return counts
+}
+
+/**
+ * Retorna apenas as tarefas abertas (open) de uma data específica.
+ * Usado no Home para listar pendências de ontem em UMA query, sem for-loop.
+ */
+export async function getOpenTasksForDate(
+  workspaceId: string,
+  dateKey: string,
+): Promise<JournalItem[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('journal_items')
+    .select('*, journal_entries!inner(entry_date, deleted_at)')
+    .eq('workspace_id', workspaceId)
+    .eq('journal_entries.entry_date', dateKey)
+    .eq('status', 'open')
+    .eq('bullet_type', 'task')
+    .is('deleted_at', null)
+    .is('journal_entries.deleted_at', null)
+    .limit(20)
 
   if (error) throw error
   return (data ?? []) as unknown as JournalItem[]

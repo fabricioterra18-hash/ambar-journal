@@ -58,29 +58,29 @@ export default function LoginPage({
     }
 
     const titles = {
-        login: 'Bem-vindo de volta',
-        signup: 'Criar Conta',
-        forgot: 'Recuperar Senha',
+        login: 'Bem-vindo\nde volta.',
+        signup: 'Sua página\nem branco.',
+        forgot: 'Uma nova\nchave.',
     }
 
     const subtitles = {
-        login: 'Acesse seu Ambar Journal.',
-        signup: 'Comece sua jornada no Ambar Journal.',
-        forgot: 'Informe seu email para receber o link.',
+        login: 'Seu diário continua onde você parou.',
+        signup: 'Um Bullet Journal digital, quente e elegante — com um toque de IA.',
+        forgot: 'Informe seu email e mandamos um link seguro.',
     }
 
     return (
-        <main className="flex-1 flex flex-col justify-center p-6 bg-background min-h-screen">
+        <main className="flex-1 flex flex-col justify-center p-6 bg-background bg-paper min-h-screen">
             <div className="w-full max-w-sm mx-auto">
                 {/* Logo */}
-                <div className="w-16 h-16 gradient-coral rounded-2xl flex items-center justify-center shadow-lg mb-8">
-                    <span className="font-heading text-3xl text-white">A</span>
+                <div className="w-16 h-16 gradient-amber-deep rounded-[22px] flex items-center justify-center shadow-elevated mb-8 rotate-[-4deg]">
+                    <span className="title-display title-italic text-4xl text-white">Â</span>
                 </div>
 
-                <h1 className="text-3xl font-heading text-charcoal-900 mb-1">
+                <h1 className="title-display text-[44px] text-charcoal-900 mb-2 whitespace-pre-line">
                     {titles[view]}
                 </h1>
-                <p className="text-charcoal-400 font-sans text-sm mb-8">
+                <p className="text-charcoal-500 font-sans text-[15px] leading-relaxed mb-8 max-w-[18rem]">
                     {subtitles[view]}
                 </p>
 
@@ -213,7 +213,7 @@ export default function LoginPage({
                         <button
                             type="submit"
                             disabled={isPending}
-                            className="w-full gradient-coral text-white p-4 rounded-xl font-sans font-semibold shadow-lg active:scale-98 transition-transform disabled:opacity-50"
+                            className="w-full gradient-amber-deep text-white p-4 rounded-2xl font-sans font-semibold shadow-elevated press disabled:opacity-50 focus-ring"
                         >
                             {isPending
                                 ? (view === 'forgot' ? 'Enviando...' : view === 'signup' ? 'Criando conta...' : 'Entrando...')
@@ -242,9 +242,9 @@ export default function LoginPage({
                 </form>
 
                 {/* Footer badge */}
-                <div className="flex items-center justify-center gap-1.5 mt-8 text-charcoal-400">
-                    <Sparkles size={12} />
-                    <span className="text-[10px] font-medium">Powered by AI</span>
+                <div className="flex items-center justify-center gap-1.5 mt-10 text-charcoal-400">
+                    <Sparkles size={11} className="text-amber-500" />
+                    <span className="text-[10px] font-medium tracking-wider uppercase">Âmbar · Escreva do seu jeito</span>
                 </div>
             </div>
         </main>

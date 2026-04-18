@@ -6,11 +6,12 @@ import {
   Check, ChevronRight, ChevronLeft, Star, AlertCircle,
   Trash2, Sparkles, MoreHorizontal, Pencil,
   Calendar, Folder, X, ListChecks, Minimize2, Maximize2, Zap,
+  ArrowDownToLine, Clock,
 } from 'lucide-react'
 import {
   completeBullet, reopenBullet, removeBullet,
   updateBulletText, updateBulletType, archiveBullet,
-  migrateBulletToDate, assignToCollection, updateBulletPriority,
+  migrateBulletToDate, moveBulletToToday, assignToCollection, updateBulletPriority,
 } from '@/lib/actions/bullet-actions'
 import {
   generateMicrotasksForItem, toggleMicrotask, removeMicrotask,
@@ -18,6 +19,7 @@ import {
   getNextStepAction,
 } from '@/lib/actions/microtask-actions'
 import { toLocalDateKey, todayISO, isPast } from '@/lib/utils'
+import { AIAnalyzePanel } from './AIAnalyzePanel'
 import type { JournalItem, Microtask, BulletType as BType, Collection } from '@/types/database'
 
 export type BulletType = 'task' | 'event' | 'note' | 'priority' | 'insight' | 'migrated' | 'completed' | 'scheduled'
@@ -28,6 +30,12 @@ interface BulletItemProps {
   type?: BulletType
   content?: string
   onClick?: () => void
+  /** Chamado após qualquer mutação (update/toggle/delete/migrate). Usado pelo sheet para recarregar. */
+  onAction?: () => void
+  /** Data de origem (YYYY-MM-DD) quando o item é uma pendência de dia anterior. Habilita "Mover para hoje". */
+  pendingFromDate?: string
+  /** Quantas vezes o item já foi migrado. Usado para detectar adiamento recorrente. */
+  migrationCount?: number
 }
 
 const bulletConfig = {
@@ -88,7 +96,8 @@ const typeOptions: { value: BType; label: string; emoji: string }[] = [
   { value: 'insight', label: 'Insight', emoji: '💡' },
 ]
 
-export function BulletItem({ item, collections, type, content, onClick }: BulletItemProps) {
+export function BulletItem({ item, collections, type, content, onClick, onAction, pendingFromDate, migrationCount }: BulletItemProps) {
+  const notify = () => { if (onAction) onAction() }
   const [expanded, setExpanded] = useState(false)
   const [showActions, setShowActions] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -100,6 +109,7 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
   const [microtasksLoading, setMicrotasksLoading] = useState(false)
   const [nextStep, setNextStep] = useState<{ step: string; why: string } | null>(null)
   const [nextStepLoading, setNextStepLoading] = useState(false)
+  const [showAnalyze, setShowAnalyze] = useState(false)
   const editRef = useRef<HTMLTextAreaElement>(null)
 
   const bulletType = item
@@ -126,19 +136,22 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
     startTransition(async () => {
       await updateBulletText(item.id, editText.trim())
       setIsEditing(false)
+      notify()
     })
   }
 
   function handleToggle() {
     if (!item) return
-    startTransition(() => {
-      item.status === 'completed' ? reopenBullet(item.id) : completeBullet(item.id)
+    startTransition(async () => {
+      if (item.status === 'completed') await reopenBullet(item.id)
+      else await completeBullet(item.id)
+      notify()
     })
   }
 
   function handleChangeType(newType: BType) {
     if (!item) return
-    startTransition(() => updateBulletType(item.id, newType))
+    startTransition(async () => { await updateBulletType(item.id, newType); notify() })
     setShowTypeMenu(false)
   }
 
@@ -148,32 +161,44 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
     target.setDate(target.getDate() + daysAhead)
     const toDate = toLocalDateKey(target)
     const fromDate = todayISO()
-    startTransition(() => migrateBulletToDate(item.id, item.entry_id, fromDate, toDate))
+    startTransition(async () => {
+      await migrateBulletToDate(item.id, item.entry_id, fromDate, toDate)
+      notify()
+    })
     setShowMigrateMenu(false)
     setShowActions(false)
   }
 
   function handleAssignCollection(collectionId: string | null) {
     if (!item) return
-    startTransition(() => assignToCollection(item.id, collectionId))
+    startTransition(async () => { await assignToCollection(item.id, collectionId); notify() })
     setShowCollectionMenu(false)
   }
 
   function handleDelete() {
     if (!item) return
-    startTransition(() => removeBullet(item.id))
+    startTransition(async () => { await removeBullet(item.id); notify() })
   }
 
   function handleToggleFocus() {
     if (!item) return
     // Ciclo: null → 2 (importante) → 1 (em foco) → null
     const next = item.priority === null ? 2 : item.priority === 2 ? 1 : null
-    startTransition(() => updateBulletPriority(item.id, next))
+    startTransition(async () => { await updateBulletPriority(item.id, next); notify() })
+  }
+
+  function handleMoveToToday() {
+    if (!item || !pendingFromDate) return
+    startTransition(async () => {
+      await moveBulletToToday(item.id, item.entry_id, pendingFromDate)
+      notify()
+    })
+    setShowActions(false)
   }
 
   function handleArchive() {
     if (!item) return
-    startTransition(() => archiveBullet(item.id))
+    startTransition(async () => { await archiveBullet(item.id); notify() })
     setShowActions(false)
   }
 
@@ -290,6 +315,18 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
                     ⚠️ Atrasado
                   </span>
                 )}
+                {/* Pendente de dia anterior */}
+                {pendingFromDate && (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">
+                    <Clock size={9} /> {pendingFromDate.slice(8, 10)}/{pendingFromDate.slice(5, 7)}
+                  </span>
+                )}
+                {/* Adiamento recorrente */}
+                {typeof migrationCount === 'number' && migrationCount >= 2 && (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-500 font-medium">
+                    🔁 Adiado {migrationCount}×
+                  </span>
+                )}
                 {/* AI badge */}
                 {item?.ai_generated && (
                   <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-lavender-50 text-lavender-500 font-medium">
@@ -330,7 +367,19 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
       {/* Action bar */}
       {showActions && isInteractive && !isEditing && (
         <div className="px-4 pb-3 pl-12 animate-fade-in">
+          {/* Aviso leve para adiamento recorrente */}
+          {typeof migrationCount === 'number' && migrationCount >= 3 && (
+            <div className="mb-2 bg-rose-50 border border-rose-100 rounded-xl p-2.5 flex items-start gap-2">
+              <AlertCircle size={12} className="text-rose-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] font-sans text-charcoal-700 leading-snug">
+                Você vem adiando isso há alguns dias. Ainda é importante? Considere quebrar em microtarefas ou arquivar.
+              </p>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 flex-wrap">
+            {pendingFromDate && item.status === 'open' && (
+              <ActionBtn icon={<ArrowDownToLine size={12} />} label="Mover p/ hoje" variant="coral" onClick={handleMoveToToday} />
+            )}
             {isTask && item.status === 'open' && (
               <ActionBtn icon={<Check size={12} />} label="Concluir" variant="sage" onClick={handleToggle} />
             )}
@@ -414,11 +463,31 @@ export function BulletItem({ item, collections, type, content, onClick }: Bullet
               />
             )}
 
+            {/* Análise pós-criação */}
+            <ActionBtn
+              icon={<Sparkles size={12} />}
+              label="Analisar"
+              variant="lavender"
+              onClick={() => { setShowAnalyze(s => !s); setShowActions(false) }}
+            />
+
             <ActionBtn icon={<X size={12} />} label="Arquivar" variant="default" onClick={handleArchive} />
             <button onClick={handleDelete} className="ml-auto text-rose-400/60 hover:text-rose-500 p-1.5 transition-colors">
               <Trash2 size={14} />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* AI Analyze panel */}
+      {showAnalyze && item && (
+        <div className="px-4 pb-2">
+          <AIAnalyzePanel
+            itemId={item.id}
+            currentText={item.text}
+            onApplied={notify}
+            onClose={() => setShowAnalyze(false)}
+          />
         </div>
       )}
 

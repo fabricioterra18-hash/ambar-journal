@@ -336,8 +336,28 @@ export async function migrateBulletToDate(
   const entry = await getOrCreateEntry(workspace.id, journal.id, toDate)
 
   await migrateItem(itemId, entry.id, fromEntryId, fromDate, toDate, reason)
+
+  // Reabrir no destino: migração deve resultar em uma tarefa acionável,
+  // não um item histórico. O rastreio fica na tabela item_migrations.
+  await updateItem(itemId, { status: 'open' })
+
   revalidatePath('/')
   revalidatePath('/journal')
+}
+
+/**
+ * Atalho para mover um item de um dia anterior para hoje.
+ * Mantém histórico em item_migrations. Ideal para o botão de pendências.
+ */
+export async function moveBulletToToday(
+  itemId: string,
+  fromEntryId: string,
+  fromDate: string,
+  reason?: string,
+) {
+  const toDate = todayISO()
+  if (fromDate === toDate) return
+  return migrateBulletToDate(itemId, fromEntryId, fromDate, toDate, reason ?? 'move_to_today')
 }
 
 export async function assignToCollection(itemId: string, collectionId: string | null) {

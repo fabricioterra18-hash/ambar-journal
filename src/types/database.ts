@@ -132,8 +132,17 @@ export interface UserPreferences {
   theme: string
   reduce_motion: boolean
   week_starts_on: number
+  hints_dismissed: string[]
   created_at: string
   updated_at: string
+}
+
+export interface Feedback {
+  id: string
+  user_id: string
+  email: string | null
+  message: string
+  created_at: string
 }
 
 export interface Integration {

@@ -80,3 +80,30 @@ export async function getCollectionItemCount(collectionId: string): Promise<numb
   if (error) throw error
   return count ?? 0
 }
+
+/**
+ * Retorna contagem de itens por coleção em UMA query.
+ * Evita N+1 quando a página precisa exibir muitas coleções.
+ */
+export async function getCollectionItemCounts(
+  workspaceId: string,
+): Promise<Record<string, number>> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('journal_items')
+    .select('collection_id')
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .not('collection_id', 'is', null)
+
+  if (error) throw error
+
+  const counts: Record<string, number> = {}
+  for (const row of data ?? []) {
+    const cid = (row as { collection_id: string | null }).collection_id
+    if (!cid) continue
+    counts[cid] = (counts[cid] ?? 0) + 1
+  }
+  return counts
+}

@@ -1,7 +1,10 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import type { Workspace } from '@/types/database'
 
-export async function getWorkspace(): Promise<Workspace> {
+// React.cache deduplica chamadas por requisição — múltiplas páginas/componentes
+// que pedem o workspace no mesmo request compartilham o mesmo resultado.
+export const getWorkspace = cache(async (): Promise<Workspace> => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -14,9 +17,9 @@ export async function getWorkspace(): Promise<Workspace> {
 
   if (error) throw error
   return data
-}
+})
 
-export async function getProfile() {
+export const getProfile = cache(async () => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -29,7 +32,7 @@ export async function getProfile() {
 
   if (error) throw error
   return data
-}
+})
 
 export async function updateProfile(updates: { full_name?: string; avatar_url?: string }) {
   const supabase = await createClient()

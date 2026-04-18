@@ -3,6 +3,8 @@ import { getPreferences } from '@/lib/services/preferences'
 import { SettingsForm } from './settings-form'
 import { ProfileForm } from './profile-form'
 import { LogoutButton } from './logout-button'
+import { FeedbackForm } from './feedback-form'
+import { LearnSection } from './learn-section'
 
 export default async function SettingsPage() {
   const [profile, preferences] = await Promise.all([
@@ -27,6 +29,12 @@ export default async function SettingsPage() {
       </section>
 
       <SettingsForm preferences={preferences} />
+
+      <div className="mt-6">
+        <LearnSection />
+      </div>
+
+      <FeedbackForm />
 
       <section className="mt-6">
         <LogoutButton />

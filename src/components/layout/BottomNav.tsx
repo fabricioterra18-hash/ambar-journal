@@ -31,9 +31,10 @@ export function BottomNav() {
           <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-50">
             <button
               onClick={() => setCaptureOpen(true)}
-              className="w-14 h-14 gradient-coral rounded-2xl flex items-center justify-center shadow-elevated active:scale-95 transition-transform"
+              aria-label="Capturar"
+              className="w-14 h-14 gradient-amber-deep rounded-2xl flex items-center justify-center shadow-elevated press focus-ring rotate-[-3deg]"
             >
-              <Plus size={24} className="text-white" strokeWidth={2.5} />
+              <Plus size={24} className="text-white" strokeWidth={2.2} />
             </button>
           </div>
 
@@ -47,7 +48,7 @@ export function BottomNav() {
                   className={clsx(
                     'flex flex-col items-center gap-1 py-1 px-4 rounded-xl transition-all',
                     isActive
-                      ? 'text-coral-500'
+                      ? 'text-amber-500'
                       : 'text-charcoal-400 active:text-charcoal-600'
                   )}
                 >
@@ -74,7 +75,7 @@ export function BottomNav() {
                   className={clsx(
                     'flex flex-col items-center gap-1 py-1 px-4 rounded-xl transition-all',
                     isActive
-                      ? 'text-coral-500'
+                      ? 'text-amber-500'
                       : 'text-charcoal-400 active:text-charcoal-600'
                   )}
                 >

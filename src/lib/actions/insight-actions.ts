@@ -59,37 +59,43 @@ export async function getWeeklySummary() {
   const workspace = await getWorkspace()
   const supabase = await createClient()
 
-  // Get last 7 days
+  // Last 7 days — single range query em vez de 7 idas ao banco em série
   const dates: string[] = []
   for (let i = 6; i >= 0; i--) {
     const d = new Date()
     d.setDate(d.getDate() - i)
     dates.push(toLocalDateKey(d))
   }
+  const fromDate = dates[0]
+  const toDate = dates[dates.length - 1]
 
-  const dailyItems: { date: string; items: { text: string; status: string; bullet_type: string }[] }[] = []
+  const { data: rows } = await supabase
+    .from('journal_items')
+    .select('text, status, bullet_type, journal_entries!inner(entry_date, deleted_at)')
+    .eq('workspace_id', workspace.id)
+    .is('deleted_at', null)
+    .is('journal_entries.deleted_at', null)
+    .gte('journal_entries.entry_date', fromDate)
+    .lte('journal_entries.entry_date', toDate)
 
-  for (const date of dates) {
-    const { data: entries } = await supabase
-      .from('journal_entries')
-      .select('id')
-      .eq('workspace_id', workspace.id)
-      .eq('entry_date', date)
-      .is('deleted_at', null)
-
-    if (!entries?.length) continue
-
-    const entryIds = entries.map(e => e.id)
-    const { data: items } = await supabase
-      .from('journal_items')
-      .select('text, status, bullet_type')
-      .in('entry_id', entryIds)
-      .is('deleted_at', null)
-
-    if (items?.length) {
-      dailyItems.push({ date, items })
+  const byDate = new Map<string, { text: string; status: string; bullet_type: string }[]>()
+  for (const row of rows ?? []) {
+    const r = row as {
+      text: string
+      status: string
+      bullet_type: string
+      journal_entries: { entry_date: string } | { entry_date: string }[]
     }
+    const je = Array.isArray(r.journal_entries) ? r.journal_entries[0] : r.journal_entries
+    if (!je) continue
+    const arr = byDate.get(je.entry_date) ?? []
+    arr.push({ text: r.text, status: r.status, bullet_type: r.bullet_type })
+    byDate.set(je.entry_date, arr)
   }
+
+  const dailyItems = dates
+    .map(date => ({ date, items: byDate.get(date) ?? [] }))
+    .filter(d => d.items.length > 0)
 
   if (!dailyItems.length) return null
 

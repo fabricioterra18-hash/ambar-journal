@@ -1,7 +1,8 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import type { UserPreferences } from '@/types/database'
 
-export async function getPreferences(): Promise<UserPreferences> {
+export const getPreferences = cache(async (): Promise<UserPreferences> => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -14,7 +15,7 @@ export async function getPreferences(): Promise<UserPreferences> {
 
   if (error) throw error
   return data
-}
+})
 
 export async function updatePreferences(
   updates: Partial<Pick<UserPreferences, 'ai_enabled' | 'ai_operational_enabled' | 'ai_reflective_enabled' | 'theme' | 'reduce_motion' | 'week_starts_on'>>

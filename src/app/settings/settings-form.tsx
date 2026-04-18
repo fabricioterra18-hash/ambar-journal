@@ -46,8 +46,8 @@ export function SettingsForm({ preferences }: { preferences: UserPreferences }) 
                 <Brain size={14} className="text-coral-500" />
               </div>
               <div>
-                <p className="font-sans text-sm text-charcoal-900 font-medium">Operacional</p>
-                <p className="font-sans text-xs text-charcoal-400 mt-0.5">Classificacao, microtarefas</p>
+                <p className="font-sans text-sm text-charcoal-900 font-medium">Te ajuda a fazer</p>
+                <p className="font-sans text-xs text-charcoal-400 mt-0.5">Organiza textos e quebra em passos</p>
               </div>
             </div>
             <Toggle checked={preferences.ai_operational_enabled} onChange={(v) => toggle(toggleOperationalAI, v)} disabled={isPending || !preferences.ai_enabled} />
@@ -59,8 +59,8 @@ export function SettingsForm({ preferences }: { preferences: UserPreferences }) 
                 <Eye size={14} className="text-lavender-500" />
               </div>
               <div>
-                <p className="font-sans text-sm text-charcoal-900 font-medium">Reflexiva</p>
-                <p className="font-sans text-xs text-charcoal-400 mt-0.5">Resumos e padroes</p>
+                <p className="font-sans text-sm text-charcoal-900 font-medium">Te ajuda a ver</p>
+                <p className="font-sans text-xs text-charcoal-400 mt-0.5">Resumos e padrões do seu dia</p>
               </div>
             </div>
             <Toggle checked={preferences.ai_reflective_enabled} onChange={(v) => toggle(toggleReflectiveAI, v)} disabled={isPending || !preferences.ai_enabled} />

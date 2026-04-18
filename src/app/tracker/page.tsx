@@ -1,20 +1,19 @@
+import { Suspense } from 'react'
 import { getWorkspace } from '@/lib/services/workspace'
 import { getItemsForWorkspace } from '@/lib/services/items'
 import { getMoodHistory } from '@/lib/services/mood'
-import { getWeeklySummary } from '@/lib/actions/insight-actions'
 import { ProgressRing } from '@/components/ui/ProgressRing'
-import { Sparkles, TrendingUp, Flame, Target, Heart, Zap } from 'lucide-react'
-import { todayISO, toLocalDateKey } from '@/lib/utils'
+import { Sparkles, Target, Heart } from 'lucide-react'
+import { toLocalDateKey } from '@/lib/utils'
 import Link from 'next/link'
+import { WeeklyInsight } from './_components/WeeklyInsight'
 
 export default async function TrackerPage() {
   const workspace = await getWorkspace()
-  const today = todayISO()
 
-  const [allItems, moodHistory, weeklySummary] = await Promise.all([
+  const [allItems, moodHistory] = await Promise.all([
     getItemsForWorkspace(workspace.id, { limit: 200 }),
     getMoodHistory(workspace.id, 30).catch(() => []),
-    getWeeklySummary().catch(() => null),
   ])
 
   const totalTasks = allItems.filter(i => i.bullet_type === 'task')
@@ -194,30 +193,10 @@ export default async function TrackerPage() {
         </section>
       )}
 
-      {/* AI Weekly Insight */}
-      {weeklySummary && (
-        <section className="bg-charcoal-900 rounded-2xl p-5 mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-lavender-500/20 flex items-center justify-center">
-              <Sparkles size={14} className="text-lavender-400" />
-            </div>
-            <span className="text-xs text-lavender-400 font-semibold uppercase tracking-wider">Reflexao Semanal</span>
-          </div>
-          <p className="text-white/90 text-sm leading-relaxed font-sans">{weeklySummary.summary}</p>
-          {weeklySummary.wins && weeklySummary.wins.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {weeklySummary.wins.slice(0, 3).map((w: string, i: number) => (
-                <span key={i} className="text-[10px] px-2 py-1 rounded-lg bg-sage-500/20 text-sage-400 font-medium">
-                  ✓ {w}
-                </span>
-              ))}
-            </div>
-          )}
-          {weeklySummary.suggestion && (
-            <p className="text-lavender-400/80 text-xs font-sans mt-3 italic">{weeklySummary.suggestion}</p>
-          )}
-        </section>
-      )}
+      {/* AI Weekly Insight em Suspense — não bloqueia render da página */}
+      <Suspense fallback={null}>
+        <WeeklyInsight />
+      </Suspense>
 
       {/* Navigate links */}
       <section className="grid grid-cols-2 gap-3">

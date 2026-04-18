@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { DM_Sans, DM_Serif_Display } from 'next/font/google';
+import { DM_Sans, Fraunces } from 'next/font/google';
 import './globals.css';
 import { BottomNav } from '@/components/layout/BottomNav';
 
@@ -10,16 +10,18 @@ const dmSans = DM_Sans({
   display: 'swap',
 });
 
-const dmSerif = DM_Serif_Display({
-  weight: ['400'],
+// Fraunces: serif editorial variável — dá identidade ao produto (títulos).
+const fraunces = Fraunces({
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
   subsets: ['latin'],
-  variable: '--font-dm-serif',
+  variable: '--font-fraunces',
   display: 'swap',
 });
 
 export const metadata: Metadata = {
   title: 'Âmbar Journal',
-  description: 'Seu Bullet Journal digital com inteligência artificial.',
+  description: 'Seu Bullet Journal digital, quente e elegante — com um toque de IA.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -33,7 +35,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#FAF6F1',
+  themeColor: '#F7EFE3',
 };
 
 export default function RootLayout({
@@ -43,8 +45,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${dmSans.variable} ${dmSerif.variable} font-sans antialiased`}>
-        <div className="mx-auto max-w-md min-h-screen bg-background relative sm:shadow-2xl overflow-hidden flex flex-col">
+      <body className={`${dmSans.variable} ${fraunces.variable} font-sans antialiased bg-paper`}>
+        <div className="mx-auto max-w-md min-h-screen bg-background relative sm:shadow-2xl overflow-hidden flex flex-col bg-paper">
           {children}
           <BottomNav />
         </div>

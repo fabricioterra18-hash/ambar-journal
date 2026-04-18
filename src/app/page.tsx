@@ -1,55 +1,73 @@
+import { Suspense } from 'react'
 import { getWorkspace, getProfile } from '@/lib/services/workspace'
-import { getOrCreateDailyJournal, getOrCreateEntry, getEntriesForDate } from '@/lib/services/journal'
-import { getItemsForEntry } from '@/lib/services/items'
+import { getPreferences } from '@/lib/services/preferences'
+import { getOrCreateDailyJournal, getOrCreateEntry } from '@/lib/services/journal'
+import { getItemsForEntry, getPendingTasksBefore, getMigrationCountsForItems } from '@/lib/services/items'
 import { getCollections } from '@/lib/services/collections'
 import { getMoodForDate, getWeekMoods } from '@/lib/services/mood'
-import { getDailySummary } from '@/lib/actions/insight-actions'
 import { BulletItem } from '@/components/ui/BulletItem'
 import { MoodWidget } from '@/components/ui/MoodWidget'
-import { formatDateBR, todayISO, getGreeting, yesterdayISO } from '@/lib/utils'
-import { Sparkles, ArrowRight, ChevronRight, Zap } from 'lucide-react'
+import { Hint } from '@/components/ui/Hint'
+import { DailySummaryCard } from './_components/DailySummaryCard'
+import { formatDateBR, todayISO, getGreeting, isPast } from '@/lib/utils'
+import { ArrowRight, ChevronRight, Zap } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function Home() {
-  const workspace = await getWorkspace()
-  const profile = await getProfile()
-  const collections = await getCollections(workspace.id)
+  // Workspace + profile em paralelo (ambos cacheados)
+  const [workspace, profile, preferences] = await Promise.all([
+    getWorkspace(),
+    getProfile(),
+    getPreferences().catch(() => null),
+  ])
+  const hintsDismissed = preferences?.hints_dismissed ?? []
   const today = todayISO()
 
-  // Today's items
+  // Journal + entry de hoje (sequenciais, mas só em Home)
   const journal = await getOrCreateDailyJournal(workspace.id, today)
   const entry = await getOrCreateEntry(workspace.id, journal.id, today)
-  const todayItems = await getItemsForEntry(entry.id)
 
-  // Yesterday's pending items
-  const yesterdayStr = yesterdayISO()
-  const yesterdayEntries = await getEntriesForDate(workspace.id, yesterdayStr)
-  let pendingFromYesterday: typeof todayItems = []
-  for (const e of yesterdayEntries) {
-    const items = await getItemsForEntry(e.id)
-    pendingFromYesterday.push(...items.filter(i => i.status === 'open' && i.bullet_type === 'task'))
-  }
+  // Items de hoje, pendências de dias anteriores, collections, mood — em paralelo
+  const [collections, todayItems, pending, todayMood, weekMoods] = await Promise.all([
+    getCollections(workspace.id),
+    getItemsForEntry(entry.id),
+    getPendingTasksBefore(workspace.id, today, 15).catch(() => [] as Awaited<ReturnType<typeof getPendingTasksBefore>>),
+    getMoodForDate(workspace.id, today).catch(() => null),
+    getWeekMoods(workspace.id).catch(() => []),
+  ])
 
-  // Stats
+  // Contagem de migrações para detectar adiamento recorrente
+  const pendingIds = pending.map(p => p.id)
+  const migrationCounts = pendingIds.length
+    ? await getMigrationCountsForItems(workspace.id, pendingIds).catch(() => ({} as Record<string, number>))
+    : {}
+
   const pendingTasks = todayItems.filter(i => i.bullet_type === 'task' && i.status === 'open')
   const completedTasks = todayItems.filter(i => i.bullet_type === 'task' && i.status === 'completed')
   const events = todayItems.filter(i => i.bullet_type === 'event' && i.status === 'open')
-  const focusItems = todayItems.filter(i => i.status === 'open').slice(0, 5)
   const totalTasks = pendingTasks.length + completedTasks.length
 
+  // "Em Foco" inteligente: prioridade explícita > atrasado/vence hoje > com microtarefas > ordem natural
+  // Critério de foco: apenas tarefas/eventos abertos de hoje. Limite 5.
+  const focusCandidates = todayItems.filter(i =>
+    i.status === 'open' && (i.bullet_type === 'task' || i.bullet_type === 'event')
+  )
+  const focusScore = (i: typeof focusCandidates[number]) => {
+    let s = 0
+    if (i.priority === 1) s += 100
+    else if (i.priority === 2) s += 60
+    const dueKey = i.due_at?.slice(0, 10)
+    if (dueKey === today) s += 30
+    if (dueKey && isPast(dueKey)) s += 25
+    if ((i.microtasks?.length ?? 0) > 0) s += 8
+    if (i.bullet_type === 'event') s += 5
+    return s
+  }
+  const focusItems = [...focusCandidates]
+    .sort((a, b) => focusScore(b) - focusScore(a))
+    .slice(0, 5)
+
   const displayName = profile.full_name?.split(' ')[0] || profile.email?.split('@')[0] || 'voce'
-
-  // Mood
-  let todayMood = null
-  let weekMoods: Awaited<ReturnType<typeof getWeekMoods>> = []
-  try {
-    todayMood = await getMoodForDate(workspace.id, today)
-    weekMoods = await getWeekMoods(workspace.id)
-  } catch {}
-
-  // AI summary
-  let dailySummary: Awaited<ReturnType<typeof getDailySummary>> = null
-  try { dailySummary = await getDailySummary() } catch {}
 
   return (
     <main className="flex-1 flex flex-col p-5 pb-32">
@@ -60,9 +78,9 @@ export default async function Home() {
             <p className="text-charcoal-400 font-sans font-medium text-xs tracking-widest uppercase mb-1.5">
               {formatDateBR(today)}
             </p>
-            <h1 className="text-3xl font-heading text-charcoal-900 leading-tight">
+            <h1 className="title-display text-[34px] text-charcoal-900 leading-[1.02]">
               {getGreeting()},<br />
-              <span className="text-gradient">{displayName}.</span>
+              <span className="title-italic text-amber-500">{displayName}.</span>
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -75,6 +93,15 @@ export default async function Home() {
           </div>
         </div>
       </header>
+
+      {/* Hint inicial (home) */}
+      {!hintsDismissed.includes('home') && (
+        <div className="mb-4">
+          <Hint hintKey="home" dismissed={hintsDismissed} tone="coral">
+            Toque no <b>+</b> para capturar algo rapidamente. A IA é opcional — você decide quando usar.
+          </Hint>
+        </div>
+      )}
 
       {/* Stats row */}
       <div className="flex gap-3 mb-5">
@@ -97,51 +124,41 @@ export default async function Home() {
         <MoodWidget todayMood={todayMood} weekMoods={weekMoods} />
       </section>
 
-      {/* Pending from yesterday */}
-      {pendingFromYesterday.length > 0 && (
+      {/* Pendências de dias anteriores */}
+      {pending.length > 0 && (
         <section className="bg-coral-50 rounded-2xl p-4 mb-5 border border-coral-100">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-lg bg-coral-500 flex items-center justify-center">
               <ArrowRight size={14} className="text-white" />
             </div>
             <div>
-              <h3 className="font-sans font-semibold text-sm text-charcoal-900">De ontem</h3>
-              <p className="text-xs text-charcoal-500">{pendingFromYesterday.length} tarefa{pendingFromYesterday.length !== 1 ? 's' : ''} pendente{pendingFromYesterday.length !== 1 ? 's' : ''}</p>
+              <h3 className="font-sans font-semibold text-sm text-charcoal-900">Pendências</h3>
+              <p className="text-xs text-charcoal-500">{pending.length} tarefa{pending.length !== 1 ? 's' : ''} de dias anteriores</p>
             </div>
           </div>
           <div className="flex flex-col gap-0.5 bg-surface/60 rounded-xl overflow-hidden">
-            {pendingFromYesterday.slice(0, 3).map((item) => (
-              <BulletItem key={item.id} item={item} collections={collections} />
+            {pending.slice(0, 3).map((item) => (
+              <BulletItem
+                key={item.id}
+                item={item}
+                collections={collections}
+                pendingFromDate={item.entry_date}
+                migrationCount={migrationCounts[item.id] ?? 0}
+              />
             ))}
           </div>
-          {pendingFromYesterday.length > 3 && (
+          {pending.length > 3 && (
             <Link href="/journal" className="flex items-center gap-1 text-xs text-coral-600 font-semibold mt-3 hover:text-coral-700 transition-colors">
-              Ver todas ({pendingFromYesterday.length}) <ChevronRight size={12} />
+              Ver todas ({pending.length}) <ChevronRight size={12} />
             </Link>
           )}
         </section>
       )}
 
-      {/* AI Summary */}
-      {dailySummary && (
-        <section className="bg-lavender-50 rounded-2xl p-4 mb-5 border border-lavender-100 relative overflow-hidden">
-          <div className="absolute -top-4 -right-4 opacity-5">
-            <Sparkles size={80} />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-lavender-500 flex items-center justify-center">
-                <Sparkles size={14} className="text-white" />
-              </div>
-              <span className="font-sans font-semibold text-xs text-lavender-500 tracking-wider uppercase">Insight do dia</span>
-            </div>
-            <p className="text-charcoal-800 text-sm leading-relaxed font-sans">{dailySummary.summary}</p>
-            {dailySummary.suggestion && (
-              <p className="text-lavender-500 text-xs font-sans mt-2 font-medium italic">{dailySummary.suggestion}</p>
-            )}
-          </div>
-        </section>
-      )}
+      {/* AI Summary — Suspense permite streaming sem bloquear página */}
+      <Suspense fallback={null}>
+        <DailySummaryCard />
+      </Suspense>
 
       {/* Focus items */}
       <section>
